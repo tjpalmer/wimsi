@@ -13,3 +13,9 @@ pi@raspberrypi:~/projects/wimsi $ ls -l target/release/wimsi
 >>> 2747520 - 2618468
 129052
 ```
+
+Start custom:
+```
+pi@raspberrypi:~/projects/wimsi $ ls -l target/release/wimsi
+-rwxr-xr-x 2 pi pi 2639760 Jun 21 13:21 target/release/wimsi
+```
