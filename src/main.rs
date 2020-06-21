@@ -8,23 +8,47 @@ fn main() -> Try<()> {
     let mut parser = Parser::new(&buf);
     loop {
         let state = parser.read();
-        match *state {
-            ParserState::BeginWasm { .. } => {
-                println!("====== Module");
-            }
-            ParserState::ExportSectionEntry {
-                field, ref kind, ..
-            } => {
-                println!("  Export {} {:?}", field, kind);
-            }
-            ParserState::ImportSectionEntry { module, field, .. } => {
-                println!("  Import {}::{}", module, field)
-            }
-            ParserState::EndWasm => break,
-            _ => ( /* println!(" Other {:?}", state) */ ),
+        if !handle_state(state) {
+            break;
         }
     }
     Ok(())
+}
+
+fn handle_state(state: &ParserState) -> bool {
+    match *state {
+        ParserState::BeginFunctionBody { .. } => {
+            println!("Begin function body");
+        }
+        ParserState::BeginWasm { .. } => {
+            println!("====== Module");
+        }
+        ParserState::EndFunctionBody => {
+            println!("End function body");
+        }
+        ParserState::EndWasm => {
+            return false;
+        }
+        ParserState::ExportSectionEntry {
+            field,
+            ref kind,
+            index,
+        } => {
+            println!("Export {} {:?} at {}", field, kind, index);
+        }
+        ParserState::ImportSectionEntry { module, field, ty } => {
+            // wasmparser::ImportSectionEntryType
+            println!("Import {}::{} of {:?}", module, field, ty);
+        }
+        ParserState::TypeSectionEntry(ref func_type) => {
+            // wasmparser::FuncType
+            println!("Type section entry: {:?}", func_type);
+        }
+        _ => {
+            println!("Other {:?}", state);
+        }
+    }
+    true
 }
 
 fn read_wasm_bytes() -> Try<Vec<u8>> {
