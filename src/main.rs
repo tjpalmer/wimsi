@@ -3,7 +3,7 @@ mod util;
 use code::*;
 use std::{fs::File, io::prelude::*};
 use util::*;
-use wasmparser::{Parser, ParserState, WasmDecoder};
+use wasmparser::{Operator, Parser, ParserState, WasmDecoder};
 
 fn main() -> Try<()> {
     let buf = read_bytes()?;
@@ -12,21 +12,40 @@ fn main() -> Try<()> {
         let mut parser = Parser::new(&buf);
         loop {
             let state = parser.read();
-            if !handle_state(state) {
+            if !handle_state(state, &mut computer) {
                 break;
             }
         }
     }
+    println!("{:x?}", computer.memory);
     Ok(())
 }
 
-fn handle_state(state: &ParserState) -> bool {
+fn handle_operator(operator: &Operator, computer: &mut Computer) {
+    match operator {
+        Operator::Call { function_index } => {
+            computer.push_opcode(Opcode::Call);
+        }
+        Operator::I32Const { value } => {
+            computer.push_opcode(Opcode::ConstI32);
+            computer.push_i32(*value);
+        }
+        _ => {
+            println!("Other op {:?}", operator);
+        }
+    }
+}
+
+fn handle_state(state: &ParserState, computer: &mut Computer) -> bool {
     match state {
         ParserState::BeginFunctionBody { .. } => {
             println!("Begin function body");
         }
         ParserState::BeginWasm { .. } => {
             println!("====== Module");
+        }
+        ParserState::CodeOperator(ref operator) => {
+            handle_operator(operator, computer);
         }
         ParserState::EndFunctionBody => {
             println!("End function body");
