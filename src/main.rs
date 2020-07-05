@@ -1,10 +1,13 @@
+mod code;
 mod util;
+use code::*;
 use std::{fs::File, io::prelude::*};
 use util::*;
 use wasmparser::{Parser, ParserState, WasmDecoder};
 
 fn main() -> Try<()> {
     let buf = read_bytes()?;
+    let mut computer = Computer::new();
     if true {
         let mut parser = Parser::new(&buf);
         loop {
