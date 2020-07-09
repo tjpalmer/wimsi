@@ -21,14 +21,23 @@ fn main() -> Try<()> {
     Ok(())
 }
 
+struct Coder<'a> {
+    computer: &'a Computer,
+}
+
 fn handle_operator(operator: &Operator, computer: &mut Computer) {
     match operator {
         Operator::Call { function_index } => {
             computer.push_opcode(Opcode::Call);
         }
         Operator::I32Const { value } => {
-            computer.push_opcode(Opcode::ConstI32);
-            computer.push_i32(*value);
+            if (*value as i16 as i32 == *value) {
+                computer.push_opcode(Opcode::ConstI16);
+                computer.push_i16(*value as i16);
+            } else {
+                computer.push_opcode(Opcode::ConstI32);
+                computer.push_i32(*value);
+            }
         }
         _ => {
             println!("Other op {:?}", operator);
