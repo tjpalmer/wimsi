@@ -3,12 +3,15 @@ mod util;
 use code::*;
 use std::{fs::File, io::prelude::*};
 use util::*;
-use wasmparser::{Operator, Parser, ParserState, WasmDecoder};
+use wasmparser::{ImportSectionEntryType, Operator, Parser, ParserState, WasmDecoder};
 
 fn main() -> Try<()> {
     let buf = read_bytes()?;
     let mut computer = Computer::new();
-    let mut coder = Coder { computer: &mut computer };
+    let mut coder = Coder {
+        computer: &mut computer,
+        funs: vec![],
+    };
     if true {
         let mut parser = Parser::new(&buf);
         loop {
@@ -22,13 +25,21 @@ fn main() -> Try<()> {
     Ok(())
 }
 
-struct Coder<'a> {
+enum FunInfo {
+    Native { name: String },
+    User { address: i32, refs: Vec<i32> },
+}
 
+struct Coder<'a> {
     computer: &'a mut Computer,
 
+    funs: Vec<FunInfo>,
 }
 
 impl<'a> Coder<'a> {
+    fn handle_function_import(&mut self, module: &str, field: &str, func_type: u32) {
+        println!("Imp fun {}::{} of {}", module, field, func_type);
+    }
 
     fn handle_operator(&mut self, operator: &Operator) {
         let computer = &mut self.computer;
@@ -75,10 +86,14 @@ impl<'a> Coder<'a> {
             } => {
                 println!("Export {} {:?} at {}", field, kind, index);
             }
-            ParserState::ImportSectionEntry { module, field, ty } => {
-                // wasmparser::ImportSectionEntryType
-                println!("Import {}::{} of {:?}", module, field, ty);
-            }
+            ParserState::ImportSectionEntry { module, field, ty } => match ty {
+                ImportSectionEntryType::Function(ref func_type) => {
+                    self.handle_function_import(module, field, *func_type);
+                }
+                _ => {
+                    println!("Import {}::{} of {:?}", module, field, ty);
+                }
+            },
             ParserState::TypeSectionEntry(ref func_type) => {
                 // wasmparser::FuncType
                 println!("Type section entry: {:?}", func_type);
@@ -89,7 +104,6 @@ impl<'a> Coder<'a> {
         }
         true
     }
-
 }
 
 fn read_bytes() -> Try<Vec<u8>> {
