@@ -8,11 +8,12 @@ use wasmparser::{Operator, Parser, ParserState, WasmDecoder};
 fn main() -> Try<()> {
     let buf = read_bytes()?;
     let mut computer = Computer::new();
+    let mut coder = Coder { computer: &mut computer };
     if true {
         let mut parser = Parser::new(&buf);
         loop {
             let state = parser.read();
-            if !handle_state(state, &mut computer) {
+            if !coder.handle_state(state) {
                 break;
             }
         }
@@ -22,66 +23,73 @@ fn main() -> Try<()> {
 }
 
 struct Coder<'a> {
-    computer: &'a Computer,
+
+    computer: &'a mut Computer,
+
 }
 
-fn handle_operator(operator: &Operator, computer: &mut Computer) {
-    match operator {
-        Operator::Call { function_index } => {
-            computer.push_opcode(Opcode::Call);
-        }
-        Operator::I32Const { value } => {
-            if (*value as i16 as i32 == *value) {
-                computer.push_opcode(Opcode::ConstI16);
-                computer.push_i16(*value as i16);
-            } else {
-                computer.push_opcode(Opcode::ConstI32);
-                computer.push_i32(*value);
+impl<'a> Coder<'a> {
+
+    fn handle_operator(&mut self, operator: &Operator) {
+        let computer = &mut self.computer;
+        match operator {
+            Operator::Call { function_index } => {
+                computer.push_opcode(Opcode::Call);
+            }
+            Operator::I32Const { value } => {
+                if *value as i16 as i32 == *value {
+                    computer.push_opcode(Opcode::ConstI16);
+                    computer.push_i16(*value as i16);
+                } else {
+                    computer.push_opcode(Opcode::ConstI32);
+                    computer.push_i32(*value);
+                }
+            }
+            _ => {
+                println!("Other op {:?}", operator);
             }
         }
-        _ => {
-            println!("Other op {:?}", operator);
-        }
     }
-}
 
-fn handle_state(state: &ParserState, computer: &mut Computer) -> bool {
-    match state {
-        ParserState::BeginFunctionBody { .. } => {
-            println!("Begin function body");
+    fn handle_state(&mut self, state: &ParserState) -> bool {
+        match state {
+            ParserState::BeginFunctionBody { .. } => {
+                println!("Begin function body");
+            }
+            ParserState::BeginWasm { .. } => {
+                println!("====== Module");
+            }
+            ParserState::CodeOperator(ref operator) => {
+                self.handle_operator(operator);
+            }
+            ParserState::EndFunctionBody => {
+                println!("End function body");
+            }
+            ParserState::EndWasm => {
+                return false;
+            }
+            ParserState::ExportSectionEntry {
+                field,
+                ref kind,
+                index,
+            } => {
+                println!("Export {} {:?} at {}", field, kind, index);
+            }
+            ParserState::ImportSectionEntry { module, field, ty } => {
+                // wasmparser::ImportSectionEntryType
+                println!("Import {}::{} of {:?}", module, field, ty);
+            }
+            ParserState::TypeSectionEntry(ref func_type) => {
+                // wasmparser::FuncType
+                println!("Type section entry: {:?}", func_type);
+            }
+            _ => {
+                println!("Other {:?}", state);
+            }
         }
-        ParserState::BeginWasm { .. } => {
-            println!("====== Module");
-        }
-        ParserState::CodeOperator(ref operator) => {
-            handle_operator(operator, computer);
-        }
-        ParserState::EndFunctionBody => {
-            println!("End function body");
-        }
-        ParserState::EndWasm => {
-            return false;
-        }
-        ParserState::ExportSectionEntry {
-            field,
-            ref kind,
-            index,
-        } => {
-            println!("Export {} {:?} at {}", field, kind, index);
-        }
-        ParserState::ImportSectionEntry { module, field, ty } => {
-            // wasmparser::ImportSectionEntryType
-            println!("Import {}::{} of {:?}", module, field, ty);
-        }
-        ParserState::TypeSectionEntry(ref func_type) => {
-            // wasmparser::FuncType
-            println!("Type section entry: {:?}", func_type);
-        }
-        _ => {
-            println!("Other {:?}", state);
-        }
+        true
     }
-    true
+
 }
 
 fn read_bytes() -> Try<Vec<u8>> {
